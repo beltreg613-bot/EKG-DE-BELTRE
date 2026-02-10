@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="es">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>EKG DE BELTRE</title>
+	<style>
+		:root{--primary:#2a52be;--muted:#f3f6fb;--card-bg:#ffffff;--text:#263238}
+		*{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial}
+		body{margin:0;background:linear-gradient(180deg,#f7fbff, #ffffff);color:var(--text);padding:28px}
+		.container{max-width:980px;margin:0 auto}
+		header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+		h1{font-size:20px;margin:0;color:var(--primary)}
+		.grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+		.card{background:var(--card-bg);border-radius:10px;padding:16px;box-shadow:0 6px 18px rgba(42,82,190,0.06)}
+		.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+		label{font-size:13px;color:#596068}
+		input[type=number], input[type=text], input[type=date], select, textarea{width:100%;padding:8px 10px;border:1px solid #e6eefc;border-radius:6px;background:#fff;font-size:15px}
+		input[type=number]::-webkit-inner-spin-button{opacity:0.6}
+		.small{font-size:12px;color:#6b7280}
+		.controls{display:flex;gap:8px;margin-top:8px}
+		button{background:var(--primary);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+		.muted-btn{background:#e9eefb;color:var(--primary);border:1px solid #dbeafc}
+		.results{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+		.result-card{background:var(--muted);padding:12px;border-radius:8px}
+		.result-value{font-weight:700;font-size:20px;color:var(--primary)}
+		.findings{margin-top:12px}
+		ul.findings-list{padding-left:18px;margin:6px 0}
+		.footer{margin-top:12px;font-size:13px;color:#6b7280}
+		textarea{min-height:100px}
+
+		/* Printable spans (visible only on print) */
+		.print-value{display:none}
+
+		/* Force A4 size when printing */
+		@page{ size: A4 portrait; margin: 12mm }
+		/* Make printable container match A4 width */
+		#printReport .pr-container{ width:210mm; max-width:210mm; margin:0 auto; box-sizing:border-box }
+
+		/* Media query for print: hide inputs/buttons, show text values on white background */
+		@media print{
+			body{background:white;padding:12px}
+			/* hide interactive controls and buttons */
+			.controls, button, .muted-btn{display:none}
+			/* show form values in a print-friendly way (no borders, bold text) */
+			input, select, textarea{border:none;background:transparent;padding:0;font-weight:600}
+			/* legacy printable spans (if present) should be visible */
+			.print-value{display:block;font-weight:600}
+			/* cards should print cleanly */
+			.card, .result-card{box-shadow:none;border-radius:0;background:white}
+			/* full-width container for print: hide interactive UI and show printable report */
+			.container{display:none}
+			#printReport{display:block}
+			/* hide any button groups or instructional images used in alternate templates */
+			.btn-group, .instrucciones-img{display:none!important}
+			/* make section headings print-friendly */
+			.section-title{border-bottom:1px solid #ccc}
+		}
+
+		/* Styles for the printable report template (hidden on screen) */
+		#printReport{display:none}
+		#printReport .pr-container{font-family: Arial, sans-serif;color:#000;padding:20px}
+		#printReport .pr-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:20px}
+		#printReport .pr-hospital-info{font-size:10px;line-height:1.2;flex:1}
+		#printReport .pr-hospital-name{font-weight:700;font-size:14px;text-transform:uppercase}
+		#printReport .pr-title{text-align:right;font-weight:700;font-size:18px;min-width:180px}
+		#printReport .pr-field-group{margin-bottom:12px;display:flex;align-items:flex-end}
+		#printReport .pr-field-label{font-weight:normal;margin-right:5px;white-space:nowrap}
+		#printReport .pr-line{border-bottom:1px solid #000;flex-grow:1;min-height:18px;padding:4px 6px 6px 6px;display:flex;align-items:flex-end;color:#000}
+		#printReport .pr-row{display:flex;gap:20px}
+		#printReport .pr-full-width-lines{margin-top:5px;border-bottom:1px solid #000;height:25px}
+		#printReport .pr-signature-section{margin-top:100px;text-align:center}
+		#printReport .pr-signature-line{border-top:1px solid #000;width:300px;margin:0 auto 5px auto}
+
+		/* Responsive */
+		@media(max-width:880px){.grid{grid-template-columns:1fr;}.results{grid-template-columns:1fr}}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<header>
+			<div style="width:56px;height:56px;border-radius:10px;background:linear-gradient(180deg,var(--primary),#1e40af);display:flex;align-items:center;justify-content:center;color:white;font-weight:700">EKG</div>
+			<div>
+				<h1>EKG DE BELTRE</h1>
+				<div class="small">Introduce mediciones en cuadritos / mm. Resultados en tiempo real.</div>
+			</div>
+		</header>
+
+		<div class="grid">
+			<div>
+				<div class="card">
+					<h3>Datos del paciente</h3>
+					<div class="form-row">
+						<div>
+							<label>Nombre</label>
+							<input id="name" type="text" placeholder="Ej. Juan Pérez">
+							<div class="print-value" id="name_print"></div>
+						</div>
+						<div>
+							<label>Edad</label>
+							<input id="age" type="number" min="0" placeholder="Años">
+							<div class="print-value" id="age_print"></div>
+						</div>
+					</div>
+					<div style="margin-bottom:10px">
+						<label>Fecha</label>
+						<input id="date" type="date">
+						<div class="print-value" id="date_print"></div>
+					</div>
+
+					<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+						<div>
+							<label>Sala</label>
+							<input id="sala" type="text" placeholder="Ej. Urgencias">
+							<div class="print-value" id="sala_print"></div>
+						</div>
+						<div>
+							<label>Hora</label>
+							<input id="hora" type="time">
+							<div class="print-value" id="hora_print"></div>
+						</div>
+						<div>
+							<label>Cama</label>
+							<input id="cama" type="text" placeholder="Ej. 12B">
+							<div class="print-value" id="cama_print"></div>
+						</div>
+					</div>
+
+					<h3 style="margin-top:12px">Mediciones (cuadritos / mm)</h3>
+					<div style="margin-top:8px;margin-bottom:8px">
+						<label>Estandarización</label>
+						<input id="standardization" type="text" value="1 mV = 10 mm">
+						<div class="print-value" id="standardization_print"></div>
+					</div>
+					<div class="form-row">
+						<div>
+							<label>R-R (cuadritos)</label>
+							<input id="rr" type="number" step="0.1" min="0" placeholder="Ej. 20">
+							<div class="print-value" id="rr_print"></div>
+						</div>
+						<div>
+							<label>PR (cuadritos)</label>
+							<input id="pr" type="number" step="0.1" min="0" placeholder="Ej. 5">
+							<div class="print-value" id="pr_print"></div>
+						</div>
+					</div>
+
+					<div class="form-row">
+						<div>
+							<label>QT total (cuadritos)</label>
+							<input id="qt" type="number" step="0.1" min="0" placeholder="Ej. 10">
+							<div class="print-value" id="qt_print"></div>
+						</div>
+						<div>
+							<label>DI Neto (mm)</label>
+							<input id="di" type="number" step="0.1" placeholder="Ej. 1.2">
+							<div class="print-value" id="di_print"></div>
+						</div>
+					</div>
+
+					<div class="form-row">
+						<div>
+							<label>aVF Neto (mm)</label>
+							<input id="afv" type="number" step="0.1" placeholder="Ej. 0.9">
+							<div class="print-value" id="afv_print"></div>
+						</div>
+						<div>
+							<label>Suma Sokolow (mm)</label>
+							<input id="sokolow" type="number" step="0.1" placeholder="Ej. 32">
+							<div class="print-value" id="sokolow_print"></div>
+						</div>
+					</div>
+
+					<h3 style="margin-top:12px">Morfología / Segmento</h3>
+					<div class="form-row">
+						<div>
+							<label>Ritmo dominante</label>
+							<select id="rhythm">
+								<option>Sinusal Regular</option>
+								<option>Fibrilación Auricular</option>
+								<option>Flutter Auricular</option>
+								<option>Ritmo Nodal</option>
+								<option>Bradicardia Sinusal</option>
+								<option>Taquicardia Sinusal</option>
+							</select>
+							<div class="print-value" id="rhythm_print"></div>
+						</div>
+						<div>
+							<label>Segmento ST / Onda T</label>
+							<select id="stt">
+								<option>NORMAL</option>
+								<option>Elevación ST</option>
+								<option>Depresión ST</option>
+								<option>Inversión T</option>
+								<option>Hiperaguda</option>
+								<option>Isquemia</option>
+							</select>
+							<div class="print-value" id="stt_print"></div>
+						</div>
+					</div>
+
+					<div style="margin-top:12px">
+						<label>Morfología de las ondas (breve)</label>
+						<textarea id="morphology" placeholder="Descripción de morfología para impresión..."></textarea>
+						<div class="print-value" id="morphology_print"></div>
+					</div>
+
+					<div style="margin-top:12px">
+						<label>Diagnóstico</label>
+						<textarea id="diagnosis" placeholder="Diagnóstico clínico para impresión..."></textarea>
+						<div class="print-value" id="diagnosis_print"></div>
+						<label style="margin-top:8px">Notas adicionales</label>
+						<textarea id="notes" placeholder="Observaciones clínicas..."></textarea>
+						<div class="print-value" id="notes_print"></div>
+					</div>
+
+					<div class="controls">
+						<button id="resetBtn" class="muted-btn">Limpiar</button>
+					</div>
+				</div>
+
+				<div class="card" style="margin-top:12px">
+					<h3>Interpretación automática</h3>
+					<div class="findings">
+						<ul class="findings-list" id="findingsList"></ul>
+					</div>
+					<div class="footer">Reglas: Bradicardia &lt;60 lpm, Taquicardia &gt;100 lpm, Bloqueo AV 1°: PR &gt;200 ms, QTc prolongado &gt;0.450 s, HVI: Sokolow ≥ 35 mm</div>
+				</div>
+			</div>
+
+			<aside>
+				<div class="card">
+					<h3>Resultados (tiempo real)</h3>
+					<div class="results">
+						<div class="result-card">
+							<div class="small">Frecuencia</div>
+							<div class="result-value" id="hrVal">—</div>
+							<div class="small">lpm</div>
+						</div>
+						<div class="result-card">
+							<div class="small">Eje Eléctrico</div>
+							<div class="result-value" id="axisVal">—</div>
+							<div class="small">grados</div>
+						</div>
+						<div class="result-card">
+							<div class="small">QTc (Bazett)</div>
+							<div class="result-value" id="qtcVal">—</div>
+							<div class="small">s</div>
+						</div>
+						<div class="result-card">
+							<div class="small">Sokolow</div>
+							<div class="result-value" id="sokVal">—</div>
+							<div class="small">mm</div>
+						</div>
+					</div>
+
+					<div style="margin-top:12px">
+						<h4>Resumen</h4>
+						<div id="summaryText">—</div>
+					</div>
+
+					<div style="margin-top:12px" class="controls">
+						<button id="printBtn" class="muted-btn">Imprimir</button>
+					</div>
+				</div>
+			</aside>
+		</div>
+	</div>
+
+	<!-- Printable report template (hidden on screen, shown when printing) -->
+	<div id="printReport">
+		<div class="pr-container">
+			<div class="pr-header">
+				<div class="pr-hospital-info">
+					<div class="pr-hospital-name">Hospital Regional<br>Dr. Antonio Musa</div>
+					<p>
+						Ave. Laureano Canto No. 5, Barrio México,<br>
+						SPM<br>
+						809-629-3803<br>
+						Hospitaldrantoniomusa@hotmail.com
+					</p>
+				</div>
+				<div class="pr-title">DESCRIPCIÓN DEL<br>ELECTROCARDIOGRAMA</div>
+				</div>
+			<div class="pr-row">
+				<div class="pr-field-group" style="flex:3;"><span class="pr-field-label">Nombre:</span><div class="pr-line" id="pr_name"></div></div>
+				<div class="pr-field-group" style="flex:1;"><span class="pr-field-label">Edad:</span><div class="pr-line" id="pr_age"></div></div>
+			</div>
+			<div class="pr-row">
+				<div class="pr-field-group" style="flex:2;"><span class="pr-field-label">Fecha:</span><div class="pr-line" id="pr_date"></div></div>
+				<div class="pr-field-group" style="flex:1;"><span class="pr-field-label">Sala:</span><div class="pr-line" id="pr_sala"></div></div>
+				<div class="pr-field-group" style="flex:1;"><span class="pr-field-label">Hora:</span><div class="pr-line" id="pr_hora"></div></div>
+				<div class="pr-field-group" style="flex:1;"><span class="pr-field-label">Cama:</span><div class="pr-line" id="pr_cama"></div></div>
+			</div>
+			<div class="pr-field-group"><span class="pr-field-label">Diagnóstico:</span><div class="pr-line" id="pr_diagnosis"></div></div>
+			<div class="pr-full-width-lines"></div>
+			<div class="pr-full-width-lines"></div>
+			<div class="pr-field-group"><span class="pr-field-label">Estandarización:</span><div class="pr-line" id="pr_standardization"></div></div>
+			<div class="pr-field-group"><span class="pr-field-label">Ritmo:</span><div class="pr-line" id="pr_ritmo"></div></div>
+			<div class="pr-field-group"><span class="pr-field-label">Frecuencia cardiaca:</span><div class="pr-line" id="pr_freq"></div></div>
+			<div class="pr-field-group"><span class="pr-field-label">Eje:</span><div class="pr-line" id="pr_eje"></div></div>
+			<div class="pr-field-group"><span class="pr-field-label">Índice de Sokolow:</span><div class="pr-line" id="pr_sokolow"></div></div>
+			<div class="pr-field-group"><span class="pr-field-label">Segmento ST:</span><div class="pr-line" id="pr_st"></div></div>
+			<div class="pr-field-group"><span class="pr-field-label">Intervalo PR:</span><div class="pr-line" id="pr_pr"></div></div>
+			<div class="pr-field-group"><span class="pr-field-label">Intervalo QT:</span><div class="pr-line" id="pr_qt"></div></div>
+			<div class="pr-field-group"><span class="pr-field-label">Morfología de las ondas:</span><div class="pr-line" id="pr_morphology"></div></div>
+			<div class="pr-full-width-lines"></div>
+			<div class="pr-full-width-lines"></div>
+			<div class="pr-full-width-lines"></div>
+			<div class="pr-field-group"><span class="pr-field-label">Diagnostico Electrocardiográfico:</span><div class="pr-line" id="pr_ecg_diag"></div></div>
+			<div class="pr-full-width-lines"></div>
+			<div class="pr-full-width-lines"></div>
+			<div class="pr-full-width-lines"></div>
+			<div class="pr-signature-section"><div class="pr-signature-line"></div><span>Firma</span></div>
+		</div>
+	</div>
+
+	<script>
+		// Helper: get numeric or NaN
+		const $ = id => document.getElementById(id);
+		const inputs = ['name','age','date','sala','hora','cama','rr','pr','qt','di','afv','sokolow','rhythm','stt','diagnosis','morphology','standardization','notes'];
+
+		function getNum(id){ const el = $(id); if(!el) return NaN; const v = parseFloat(el.value); return Number.isFinite(v)?v:NaN }
+
+		function updatePrintValues(){
+			inputs.forEach(id=>{
+				const el=$(id);
+				const out=$(id+"_print");
+				if(!out) return;
+				if(!el){ out.textContent = ''; return; }
+				const tag = el.tagName || '';
+				if(tag==='SELECT' || tag==='TEXTAREA' || tag==='INPUT'){
+					out.textContent = el.value || '';
+				}
+			});
+		}
+
+		function compute(){
+			updatePrintValues();
+			const rr = getNum('rr'); // cuadritos
+			const pr = getNum('pr');
+			const qt = getNum('qt');
+			const di = getNum('di');
+			const afv = getNum('afv');
+			const sok = getNum('sokolow');
+
+			// Frecuencia: 1500 / R-R
+			let hr = NaN;
+			if(Number.isFinite(rr) && rr>0) hr = 1500/rr;
+
+			// Eje: atan2(aVF, DI) -> degrees
+			let axis=null;
+			if(Number.isFinite(di) && Number.isFinite(afv)){
+				const rad = Math.atan2(afv, di);
+				let deg = rad*180/Math.PI;
+				if(deg>180) deg-=360; if(deg<=-180) deg+=360;
+				axis = Math.round(deg*10)/10;
+			}
+
+			// QTc Bazett: (QT * 0.04) / sqrt(RR * 0.04) in seconds
+			let qtc = NaN;
+			if(Number.isFinite(qt) && Number.isFinite(rr) && rr>0){
+				const qt_s = qt * 0.04;
+				const rr_s = rr * 0.04;
+				qtc = qt_s / Math.sqrt(rr_s);
+			}
+
+			// Sokolow: use user-provided sum (mm)
+			let sokText = '—';
+			if(Number.isFinite(sok)) sokText = sok.toFixed(1);
+
+			// Update UI
+			$('hrVal').textContent = Number.isFinite(hr)?Math.round(hr):'—';
+			$('axisVal').textContent = axis!==null?axis:'—';
+			$('qtcVal').textContent = Number.isFinite(qtc)?qtc.toFixed(3):'—';
+			$('sokVal').textContent = sokText;
+
+			// Interpretations
+			const findings = [];
+			if(Number.isFinite(hr)){
+				if(hr<60) findings.push('Bradicardia');
+				if(hr>100) findings.push('Taquicardia');
+			}
+			if(Number.isFinite(pr)){
+				const pr_ms = pr * 40; // cuadrito 0.04s -> 40 ms
+				if(pr_ms>200) findings.push('Bloqueo AV 1° (PR > 200 ms)');
+			}
+			if(axis!==null){
+				if(!(axis>=-30 && axis<=90)) findings.push('Eje desviado');
+			}
+			if(Number.isFinite(qtc)){
+				if(qtc>0.450) findings.push('QTc prolongado');
+			}
+			if(Number.isFinite(sok)){
+				if(sok>=35) findings.push('Hallazgo compatible con HVI (Sokolow ≥ 35 mm)');
+			}
+
+			// Summary
+			const summaryParts = [];
+			if(Number.isFinite(hr)) summaryParts.push('FC: '+Math.round(hr)+' lpm');
+			if(axis!==null) summaryParts.push('Eje: '+axis+'°');
+			if(Number.isFinite(qtc)) summaryParts.push('QTc: '+qtc.toFixed(3)+' s');
+			if(Number.isFinite(sok)) summaryParts.push('Sokolow: '+sok.toFixed(1)+' mm');
+			$('summaryText').textContent = summaryParts.length?summaryParts.join(' · '):'—';
+
+			// Fill findings list
+			const fl = $('findingsList'); fl.innerHTML='';
+			if(findings.length===0) {
+				const li=document.createElement('li'); li.textContent='Sin hallazgos automáticos'; fl.appendChild(li);
+			} else {
+				findings.forEach(f=>{const li=document.createElement('li');li.textContent=f;fl.appendChild(li)});
+			}
+
+			// Keep JSON for copy
+			window.latestEKG = {
+				name: $('name').value || null,
+				age: Number.isFinite(getNum('age'))?getNum('age'):null,
+				date: $('date').value || null,
+				sala: $('sala').value || null,
+				hora: $('hora').value || null,
+				cama: $('cama').value || null,
+				rr: Number.isFinite(rr)?rr:null,
+				pr: Number.isFinite(pr)?pr:null,
+				qt: Number.isFinite(qt)?qt:null,
+				di: Number.isFinite(di)?di:null,
+				avf: Number.isFinite(afv)?afv:null,
+				sokolow: Number.isFinite(sok)?sok:null,
+				hr: Number.isFinite(hr)?Math.round(hr):null,
+				axis: axis!==null?axis:null,
+				qtc: Number.isFinite(qtc)?Number(qtc.toFixed(3)):null,
+				rhythm: $('rhythm').value,
+				stt: $('stt').value,
+				diagnosis: $('diagnosis').value || null,
+				morphology: $('morphology').value || null,
+				standardization: $('standardization').value || null,
+				findings: findings,
+				notes: $('notes').value || null
+			};
+
+			// Update printable report fields
+			const fill = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = (val===null||val===undefined)?'':val };
+			fill('pr_name', $('name').value || '');
+			fill('pr_age', $('age').value || '');
+			fill('pr_date', $('date').value || '');
+			fill('pr_sala', $('sala').value || '');
+			fill('pr_hora', $('hora').value || '');
+			fill('pr_cama', $('cama').value || '');
+			fill('pr_diagnosis', $('diagnosis').value || '');
+			fill('pr_standardization', $('standardization').value || '1 mV = 10 mm');
+			fill('pr_ritmo', $('rhythm').value || '');
+			fill('pr_freq', Number.isFinite(window.latestEKG.hr)?window.latestEKG.hr+' lpm':'');
+			fill('pr_eje', window.latestEKG.axis!==null?window.latestEKG.axis+'°':'');
+			fill('pr_sokolow', Number.isFinite(window.latestEKG.sokolow)?window.latestEKG.sokolow+' mm':'');
+			fill('pr_st', $('stt').value || '');
+			fill('pr_pr', Number.isFinite(window.latestEKG.pr)?(window.latestEKG.pr*0.04).toFixed(2)+' s':'');
+			fill('pr_qt', Number.isFinite(window.latestEKG.qtc)?window.latestEKG.qtc+' s':'');
+			fill('pr_morphology', $('morphology').value || '');
+			fill('pr_ecg_diag', (window.latestEKG.findings&&window.latestEKG.findings.length)?window.latestEKG.findings.join('; '):'Sin hallazgos automáticos');
+		}
+
+		// Attach events
+		inputs.forEach(id=>{
+			const el=$(id);
+			if(!el) return;
+			el.addEventListener('input', compute);
+			el.addEventListener('change', compute);
+		});
+
+		$('resetBtn').addEventListener('click', ()=>{
+			inputs.forEach(id=>{const el=$(id); if(el) el.value='';}); compute();
+		});
+
+
+
+
+		function printReportNow(){
+			// Ensure fields are up-to-date
+			compute();
+			const container = document.querySelector('.container');
+			const pr = document.getElementById('printReport');
+			// Show printable template and hide app UI
+			if(container) container.style.display='none';
+			if(pr) { pr.style.display='block'; pr.style.margin='0'; pr.style.width='100%'; pr.style.background='white'; }
+			// Some browsers support onafterprint to restore UI
+			const restore = () => {
+				if(container) container.style.display='block';
+				if(pr) pr.style.display='none';
+				window.removeEventListener('afterprint', restore);
+			};
+			window.addEventListener('afterprint', restore);
+			// Fallback: restore after a delay in case afterprint isn't supported
+			setTimeout(restore, 2000);
+			window.print();
+		}
+
+		$('printBtn').addEventListener('click', printReportNow);
+
+		// Init
+		compute();
+	</script>
+</body>
+</html>
